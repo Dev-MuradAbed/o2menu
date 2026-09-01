@@ -1,0 +1,97 @@
+/* Extract these to globals.css in Next.js */
+body {
+  font-family: "Playpen Sans", "Vazirmatn", sans-serif;
+  scroll-behavior: smooth;
+}
+
+/* --- Animations --- */
+@keyframes scrollUp {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+@keyframes scrollDown {
+  0% {
+    transform: translateY(-50%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes pinterestReveal {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* --- Utility Classes --- */
+.animate-scroll-up {
+  animation: scrollUp 100s linear infinite;
+}
+.animate-scroll-down {
+  animation: scrollDown 110s linear infinite;
+}
+.animate-scroll-up-slow {
+  animation: scrollUp 140s linear infinite;
+}
+.animate-scroll-down-slow {
+  animation: scrollDown 130s linear infinite;
+}
+
+.reveal-delay-1 {
+  animation: pinterestReveal 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+}
+.reveal-delay-2 {
+  animation: pinterestReveal 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s
+    forwards;
+  opacity: 0;
+}
+.reveal-delay-3 {
+  animation: pinterestReveal 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s
+    forwards;
+  opacity: 0;
+}
+
+.mask-fade-edges {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 20%,
+    black 80%,
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black 20%,
+    black 80%,
+    transparent
+  );
+}
+
+.o2-logo-red {
+  color: var(--primary);
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.02em;
+}
+.o2-logo-red span {
+  font-size: 0.55em;
+  transform: translateY(0.1em);
+  font-weight: 800;
+}
