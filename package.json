@@ -5,8 +5,8 @@
   "scripts": {
     "build": "next build && cp -r public .next/standalone/public",
     "start": "NODE_ENV=production node .next/standalone/server.js",
-    "lint": "next lint"
-    "dev": "next dev",
+    "lint": "next lint"،
+    "dev": "next dev"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "latest",
