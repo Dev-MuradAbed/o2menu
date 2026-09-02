@@ -1,12 +1,15 @@
-// next.config.mjs - الإعدادات المثالية
+// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✅ تفعيل TypeScript بشكل صحيح
+  // ✅ تفعيل الإصدار المستقل (يضمن وجود server.js ويصغّر الحجم)
+  output: 'standalone',
+
+  // ✅ إعدادات TypeScript
   typescript: {
-    ignoreBuildErrors: false,  // احذف هذا السطر أو اجعله false
+    ignoreBuildErrors: false,
   },
   
-  // ✅ تحسين الصور بشكل صحيح
+  // ✅ إعدادات الصور
   images: {
     unoptimized: true,  // احذف هذا السطر
     remotePatterns: [
@@ -15,23 +18,27 @@ const nextConfig = {
         hostname: 'images.unsplash.com',
         pathname: '/**',
       },
+      // أضف أي نطاقات خارجية أخرى تستخدمها هنا (مثلاً لو عندك صور من o2menu)
+      // {
+      //   protocol: 'https',
+      //   hostname: 'o2menu.onrender.com',
+      //   pathname: '/**',
+      // },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
-  // ✅ إعدادات الإنتاج
+  // ✅ وضع صارم
   reactStrictMode: true,
   
-  // ✅ تحسين الـ Bundle
+  // ✅ حذف الـ console.log في الإنتاج
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
 
-  // ✅ وسيط للبوت — يجعل الموقع والبوت على نطاق واحد
-  // الفائدة: لا CORS، ولا يظهر رابط Render للزبون، ويعمل التخزين
-  // المؤقت لمنصة الموقع. اضبط BOT_ORIGIN في متغيرات البيئة.
+  // ✅ الـ Rewrites الخاصة بالـ Bot
   async rewrites() {
     const bot = (process.env.BOT_ORIGIN || '').replace(/\/+$/, '');
     if (!bot) return [];
@@ -40,24 +47,18 @@ const nextConfig = {
     ];
   },
 
-  // ✅ Headers للأمان
+  // ✅ رؤوس الأمان
   async headers() {
     return [
       {
         source: '/:path*',
         headers: [
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'on'
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
-          },
+          { key: 'X-DNS-Prefetch-Control', value: 'on' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
         ],
       },
-    ]
+    ];
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;
