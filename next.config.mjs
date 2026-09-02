@@ -8,7 +8,7 @@ const nextConfig = {
   
   // ✅ تحسين الصور بشكل صحيح
   images: {
-    // unoptimized: false,  // احذف هذا السطر
+    unoptimized: true,  // احذف هذا السطر
     remotePatterns: [
       {
         protocol: 'https',
