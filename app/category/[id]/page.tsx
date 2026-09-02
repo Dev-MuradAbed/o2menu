@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, Suspense } from "react";
+import { imgSrc } from "../../../lib/img";
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -632,7 +633,7 @@ function ProductModal({
       >
         <div className="relative h-48 md:h-64">
           <Image
-            src={product.image || "/placeholder.svg"}
+            src={imgSrc(product.image) || "/placeholder.svg"}
             alt={product.name}
             fill
             className="object-cover"

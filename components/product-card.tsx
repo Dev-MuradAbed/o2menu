@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { imgSrc } from "../lib/img";
 
 interface MenuItem {
   name: string;
@@ -62,7 +63,7 @@ export function ProductCard({
       {/* Image Container */}
       <div className="relative w-full h-2/3 overflow-hidden">
         <Image
-          src={item.image || "/placeholder.svg"}
+          src={imgSrc(item.image) || "/placeholder.svg"}
           alt={item.name}
           fill
           className={`object-cover transition-transform duration-700 ease-out ${

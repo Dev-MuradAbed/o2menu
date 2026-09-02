@@ -13,6 +13,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { getMenuByBranch, type MenuData, type MenuItem } from "./menu-data";
+import { imgSrc } from "./img";
 
 /**
  * مصدر البيانات — طريقتان:
@@ -171,10 +172,15 @@ export function useLiveMenu(branch: string) {
     };
   }, [fetchLive]);
 
-  const menu = useMemo(
-    () => (live.length ? mergeAvailability(staticMenu, live) : staticMenu),
-    [staticMenu, live],
-  );
+  const menu = useMemo(() => {
+    const merged = live.length ? mergeAvailability(staticMenu, live) : staticMenu;
+    // تصحيح مصدر الصور لكل صنف — يعمل سواء وصل التوفّر الحيّ أم لا
+    const out: MenuData = {};
+    for (const [catId, cat] of Object.entries(merged)) {
+      out[catId] = { ...cat, items: cat.items.map((i) => ({ ...i, image: imgSrc(i.image) })) };
+    }
+    return out;
+  }, [staticMenu, live]);
 
   return { menu, status, lastUpdated, refresh: () => fetchLive() };
 }

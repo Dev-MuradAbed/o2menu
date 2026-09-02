@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect } from "react";
+import { imgSrc } from "../../lib/img";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
@@ -913,7 +914,7 @@ export default function CategoriesPage() {
               <Link href={`/category/${cat.id}`} className="group block relative">
                 <div className="relative h-[350px] md:h-[400px] w-full rounded-2xl md:rounded-3xl overflow-hidden border border-zinc-800/50 bg-zinc-900 transition-all duration-500 group-hover:border-[#dc2626]/30 group-hover:shadow-[0_0_40px_-10px_rgba(220,38,38,0.2)] hover-glow">
                   <Image
-                    src={cat.image}
+                    src={imgSrc(cat.image)}
                     alt={cat.name}
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
