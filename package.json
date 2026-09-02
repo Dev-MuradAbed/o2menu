@@ -5,7 +5,7 @@
   "scripts": {
     "build": "next build && cp -r public .next/standalone/public",
     "start": "NODE_ENV=production node .next/standalone/server.js",
-    "lint": "next lint"،
+    "lint": "next lint",
     "dev": "next dev"
   },
   "dependencies": {
