@@ -28,6 +28,23 @@ const DIRECT_URL = (process.env.NEXT_PUBLIC_BOT_URL || "").replace(/\/+$/, "");
 const USE_PROXY  = process.env.NEXT_PUBLIC_USE_BOT_PROXY === "1";
 const BOT_URL    = USE_PROXY ? "/bot-api" : DIRECT_URL;
 
+/** إعدادات الاتصال كما وصلت البناء — للتشخيص */
+export const LIVE_CONFIG = {
+  useProxy: USE_PROXY,
+  directUrl: DIRECT_URL,
+  resolvedBase: BOT_URL,
+  endpoint: USE_PROXY ? "/bot-api/public/menu" : `${DIRECT_URL}/api/public/menu`,
+  configured: Boolean(BOT_URL),
+};
+
+if (typeof window !== "undefined" && !BOT_URL) {
+  console.warn(
+    "[O2] التوفّر الحيّ معطّل: لم يصل أي رابط للبوت إلى البناء.\n" +
+    "اضبط BOT_ORIGIN + NEXT_PUBLIC_USE_BOT_PROXY=1 (أو NEXT_PUBLIC_BOT_URL)\n" +
+    "ثم أعد البناء — متغيرات NEXT_PUBLIC_ تُدمج وقت البناء لا وقت التشغيل."
+  );
+}
+
 /** كل كم ثانية نعيد الجلب أثناء فتح الصفحة */
 const REFRESH_MS = 45_000;
 
