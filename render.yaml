@@ -12,6 +12,6 @@ services:
       - key: NODE_ENV
         value: production
       - key: BOT_ORIGIN
-        sync: true                 # https://o2bot.onrender.com
+        sync: false                 # https://o2bot.onrender.com
       - key: NEXT_PUBLIC_USE_BOT_PROXY
         value: "1"
