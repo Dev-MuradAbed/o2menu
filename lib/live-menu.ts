@@ -58,6 +58,17 @@ type LiveItem = {
   price?: number;
   pricePerKg?: number;
   variants?: { name: string; price: number }[];
+  desc?: string;
+  image?: string;
+};
+
+type LiveCategory = {
+  id: string;
+  name: string;
+  label?: string;
+  emoji?: string;
+  byWeight?: boolean;
+  order?: number;
 };
 
 export type LiveStatus = "off" | "loading" | "live" | "error";
@@ -82,7 +93,11 @@ function norm(s: string): string {
  * المطابقة بـ (القسم + الاسم المطبَّع). الأسماء المكررة داخل القسم
  * تُطابَق بالترتيب حتى لا يأخذ الأول حالة الثاني.
  */
-export function mergeAvailability(staticMenu: MenuData, live: LiveItem[]): MenuData {
+export function mergeAvailability(
+  staticMenu: MenuData,
+  live: LiveItem[],
+  liveCats: LiveCategory[] = [],
+): MenuData {
   if (!live.length) return staticMenu;
 
   const buckets = new Map<string, LiveItem[]>();
@@ -95,6 +110,8 @@ export function mergeAvailability(staticMenu: MenuData, live: LiveItem[]): MenuD
   const used = new Map<string, number>();
 
   const out: MenuData = {};
+  const matched = new Set<LiveItem>();   // ما طوبق مع المنيو الثابت
+
   for (const [catId, cat] of Object.entries(staticMenu)) {
     out[catId] = {
       ...cat,
@@ -105,6 +122,7 @@ export function mergeAvailability(staticMenu: MenuData, live: LiveItem[]): MenuD
         const idx = used.get(key) || 0;
         const match = arr[Math.min(idx, arr.length - 1)];
         used.set(key, idx + 1);
+        matched.add(match);
         return {
           ...item,
           active: match.active,
@@ -115,6 +133,48 @@ export function mergeAvailability(staticMenu: MenuData, live: LiveItem[]): MenuD
         };
       }),
     };
+  }
+
+  // ── ما أُضيف من اللوحة ولا وجود له في menu-data.ts ──
+  // بدون هذا، أي قسم أو صنف تضيفه من لوحة التحكم لا يظهر للزبون أبداً.
+  const catMeta = new Map(liveCats.map((c) => [c.id, c]));
+
+  for (const li of live) {
+    if (matched.has(li)) continue;
+
+    if (!out[li.cat]) {
+      const meta = catMeta.get(li.cat);
+      out[li.cat] = {
+        title: meta ? (meta.label || meta.name) : li.cat,
+        byWeight: meta ? Boolean(meta.byWeight) : false,
+        items: [],
+      } as MenuData[string];
+    }
+    // لا تكرّر صنفاً موجوداً بالاسم في القسم
+    const exists = out[li.cat].items.some((x) => norm(x.name) === norm(li.name));
+    if (exists) continue;
+
+    out[li.cat].items.push({
+      name: li.name,
+      desc: li.desc || "",
+      image: li.image || "",
+      active: li.active,
+      ...(li.pricePerKg ? { pricePerKg: li.pricePerKg } : {}),
+      ...(li.variants && li.variants.length ? { variants: li.variants } : {}),
+      ...(!li.pricePerKg && !(li.variants && li.variants.length) && li.price !== undefined
+        ? { price: li.price } : {}),
+    } as MenuItem);
+  }
+
+  // رتّب الأقسام حسب ترتيب اللوحة
+  if (liveCats.length) {
+    const ordered: MenuData = {};
+    const rank = (id: string) => {
+      const m = catMeta.get(id);
+      return m && m.order ? m.order : 999;
+    };
+    Object.keys(out).sort((a, b) => rank(a) - rank(b)).forEach((k) => { ordered[k] = out[k]; });
+    return ordered;
   }
   return out;
 }
@@ -128,6 +188,7 @@ export function mergeAvailability(staticMenu: MenuData, live: LiveItem[]): MenuD
 export function useLiveMenu(branch: string) {
   const staticMenu = useMemo(() => getMenuByBranch(branch), [branch]);
   const [live, setLive] = useState<LiveItem[]>([]);
+  const [liveCats, setLiveCats] = useState<LiveCategory[]>([]);
   const [status, setStatus] = useState<LiveStatus>(BOT_URL ? "loading" : "off");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -144,6 +205,7 @@ export function useLiveMenu(branch: string) {
       const d = await r.json();
       if (!d.ok || !Array.isArray(d.items)) throw new Error("رد غير متوقع");
       setLive(d.items);
+      setLiveCats(Array.isArray(d.categories) ? d.categories : []);
       setLastUpdated(new Date());
       setStatus("live");
     } catch (e) {
@@ -173,14 +235,14 @@ export function useLiveMenu(branch: string) {
   }, [fetchLive]);
 
   const menu = useMemo(() => {
-    const merged = live.length ? mergeAvailability(staticMenu, live) : staticMenu;
+    const merged = live.length ? mergeAvailability(staticMenu, live, liveCats) : staticMenu;
     // تصحيح مصدر الصور لكل صنف — يعمل سواء وصل التوفّر الحيّ أم لا
     const out: MenuData = {};
     for (const [catId, cat] of Object.entries(merged)) {
       out[catId] = { ...cat, items: cat.items.map((i) => ({ ...i, image: imgSrc(i.image) })) };
     }
     return out;
-  }, [staticMenu, live]);
+  }, [staticMenu, live, liveCats]);
 
   return { menu, status, lastUpdated, refresh: () => fetchLive() };
 }
