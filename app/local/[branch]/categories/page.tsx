@@ -21,13 +21,34 @@ const CATEGORY_DISPLAY = [
   { id: "gelato", name: "الجيلاتو", image: "/menu/Gelato/72.jpeg" },
 ];
 
+/**
+ * يبني قائمة الأقسام من المنيو الفعلي لا من ثابتة.
+ * CATEGORY_DISPLAY يبقى مصدر الصور والأسماء المصمَّمة للأقسام
+ * الأصلية؛ وأي قسم جديد من لوحة التحكم يُضاف بعنوانه وبصورة
+ * مأخوذة من أول صنف فيه.
+ */
+function buildCategories(menu: any, display: {id:string;name:string;image:string}[]) {
+  const known = new Set(display.map((c) => c.id));
+  const out = display.filter((c) => menu[c.id]);
+  for (const [id, cat] of Object.entries<any>(menu)) {
+    if (known.has(id)) continue;
+    const firstImg = (cat.items || []).find((i: any) => i.image);
+    out.push({
+      id,
+      name: String(cat.title || id).replace(/^\p{Extended_Pictographic}+\s*/u, ""),
+      image: firstImg ? firstImg.image : "/placeholder.svg",
+    });
+  }
+  return out;
+}
+
 export default function LocalCategoriesPage({ forcedBranch }: { forcedBranch?: string }) {
   const params = useParams();
   const branch = forcedBranch || (params.branch as string) || "gaza";
   const { menu: branchMenu } = useLiveMenu(branch);
 
   const categories = useMemo(
-    () => CATEGORY_DISPLAY.filter((c) => branchMenu[c.id as keyof typeof branchMenu]),
+    () => buildCategories(branchMenu, CATEGORY_DISPLAY),
     [branchMenu]
   );
 
