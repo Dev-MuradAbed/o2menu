@@ -18,11 +18,26 @@ export function normalizeImagePath(raw?: string): string {
   return m ? "/" + m[0].replace(/^\/+/, "") : p;
 }
 
+/**
+ * الصور المرفوعة من لوحة التحكم تُخدَم من خادم البوت على /api/img/…
+ * لها أولوية على IMAGE_BASE لأنها ليست ملفاً في مجلد الصور.
+ */
+const BOT_ORIGIN_PUBLIC = (process.env.NEXT_PUBLIC_BOT_URL || "").replace(/\/+$/, "");
+
 /** يبني رابط الصورة النهائي */
 export function imgSrc(raw?: string): string {
   const p = normalizeImagePath(raw);
   if (!p) return "";
   if (/^https?:\/\//i.test(p)) return p;
+
+  // صورة مرفوعة: مصدرها البوت دائماً.
+  // إن لم يُضبط نطاق نتركها نسبية — قاعدة rewrites في next.config
+  // توجّهها للبوت، فتعمل بلا أي متغيّر بيئة.
+  if (p.startsWith("/api/img/")) {
+    const base = BOT_ORIGIN_PUBLIC || IMAGE_BASE;
+    return base ? base + p : p;
+  }
+
   return IMAGE_BASE ? IMAGE_BASE + p : p;
 }
 

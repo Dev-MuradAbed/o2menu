@@ -52,6 +52,9 @@ const nextConfig = {
       // beforeFiles: يُطبَّق قبل البحث في public
       beforeFiles: [
         { source: '/bot-api/:path*', destination: `${bot}/api/:path*` },
+        // الصور المرفوعة من لوحة التحكم مخزّنة في قاعدة البوت.
+        // بدون هذه القاعدة يطلبها الموقع من نطاقه فلا يجدها (404).
+        { source: '/api/img/:path*', destination: `${bot}/api/img/:path*` },
       ],
       // afterFiles: يُطبَّق فقط إن لم يوجد الملف في public.
       // شبكة أمان: أي صورة ناقصة من النشر تُجلب من البوت،
