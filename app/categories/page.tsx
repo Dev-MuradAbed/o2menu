@@ -773,7 +773,15 @@ export default function CategoriesPage() {
     setIsConfirmationOpen(false);
   }, [cart, customerInfo, selectedLocation, orderNotes, getWhatsAppNumber, clearCart, branch]);
 
-  if (!categories.length) return null;
+  // لا نُخفي الصفحة قبل وصول بيانات البوت — الأقسام الجديدة تأتي منه
+  if (!categories.length) {
+    return (
+      <div className="pt-32 pb-20 text-center">
+        <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="mt-4 text-muted-foreground">جاري تحميل الأقسام…</p>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#050505] text-white selection:bg-[#dc2626]/30">

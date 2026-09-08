@@ -1237,6 +1237,9 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
   // Get menu data for the current branch - each branch has independent menu
   // التوفّر يأتي حيّاً من لوحة التحكم — الإغلاق يظهر خلال ثوانٍ
   const { menu: branchMenu, status: liveStatus } = useLiveMenu(defaultBranch);
+  // الأقسام المضافة من لوحة التحكم لا توجد في المنيو الثابت،
+  // فلا نحكم بعدمها قبل وصول بيانات البوت.
+  const liveSettled = liveStatus === "live" || liveStatus === "error" || liveStatus === "off";
   const categoryData = branchMenu[categoryId];
   const isByWeight = categoryData?.byWeight || false;
 
@@ -1412,6 +1415,19 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
 
   const cartTotal = cart.reduce((acc, item) => acc + item.qty, 0);
   const currentProvince = defaultBranch;
+
+  if (!categoryData && !liveSettled) {
+    return (
+      <main className="min-h-screen bg-background">
+        <Navbar />
+        <div className="pt-32 pb-20 text-center">
+          <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="mt-4 text-muted-foreground">جاري تحميل القسم…</p>
+        </div>
+        <Footer />
+      </main>
+    );
+  }
 
   if (!categoryData) {
     return (

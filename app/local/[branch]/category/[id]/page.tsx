@@ -12,10 +12,28 @@ export default function LocalCategoryItems() {
     const params = useParams();
     const branch = params.branch as string;
     const categoryId = params.id as string;
-    const { menu: branchMenu } = useLiveMenu(branch);
+    const { menu: branchMenu, status: liveStatus } = useLiveMenu(branch);
     const categoryData = branchMenu[categoryId as keyof typeof branchMenu];
+    const liveSettled = liveStatus === "live" || liveStatus === "error" || liveStatus === "off";
 
-    if (!categoryData) return null;
+    // انتظر بيانات البوت قبل الحكم — الأقسام المضافة من اللوحة
+    // ليست في المنيو الثابت وتصل بعد أول رسم.
+    if (!categoryData && !liveSettled) {
+        return (
+            <div className="pt-32 pb-20 text-center">
+                <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <p className="mt-4 text-muted-foreground">جاري تحميل القسم…</p>
+            </div>
+        );
+    }
+
+    if (!categoryData) {
+        return (
+            <div className="pt-32 pb-20 text-center">
+                <p className="text-xl text-muted-foreground">القسم غير موجود</p>
+            </div>
+        );
+    }
 
     const isByWeight = !!categoryData.byWeight;
     const branchLabel = branch === "middle" ? "\u0627\u0644\u0648\u0633\u0637\u0649" : "\u063a\u0632\u0629";
