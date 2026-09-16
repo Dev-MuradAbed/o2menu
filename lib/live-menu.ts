@@ -36,7 +36,13 @@ const ENDPOINT = USE_PROXY
   : "/api/public/menu";
 
 const REFRESH_MS = 45_000;
-const CACHE_KEY = "o2-menu-cache-v2";
+const CACHE_KEY = "o2-menu-cache-v3";
+/**
+ * أقصى عمر للنسخة المحفوظة قبل أن تُعتبر مجرد عرض مؤقت.
+ * بعده نُبقي عرضها (أفضل من شاشة فارغة) لكن لا نعتبر الحالة
+ * مستقرّة، فلا يُحكم بخلوّ قسم أو عدم وجوده قبل وصول الجديد.
+ */
+const CACHE_TRUST_MS = 2 * 60 * 1000;
 
 export const LIVE_CONFIG = {
   useProxy: USE_PROXY,
@@ -66,12 +72,20 @@ type LiveCategory = {
   emoji?: string;
   byWeight?: boolean;
   order?: number;
+  /** عدد الأصناف المتوفرة في كل فرع — لمعرفة أين يوجد القسم */
+  counts?: Record<string, number>;
+  count?: number;
 };
 
-type Payload = { categories: LiveCategory[]; items: LiveItem[]; at: number };
+type Payload = { categories: LiveCategory[]; items: LiveItem[]; at: number; rev?: number };
 
-/** live = من البوت · cached = آخر نسخة محفوظة · static = الملف · loading */
-export type LiveStatus = "loading" | "live" | "cached" | "static";
+/**
+ * live   = وصلت من البوت الآن
+ * cached = نسخة محفوظة حديثة (أقل من دقيقتين) — تُعتبر مستقرّة
+ * stale  = نسخة محفوظة قديمة — تُعرض لكن ننتظر الجديد قبل الحكم
+ * static = الملف الثابت — البوت غير متاح
+ */
+export type LiveStatus = "loading" | "live" | "cached" | "stale" | "static";
 
 /* ── تخزين مؤقت في المتصفح ── */
 
@@ -109,6 +123,7 @@ export function buildMenu(payload: Payload): MenuData {
       title: c.label || c.name || c.id,
       byWeight: Boolean(c.byWeight),
       items: [],
+      counts: c.counts,
     } as MenuData[string];
   }
 
@@ -149,10 +164,11 @@ function normalizeStatic(menu: MenuData): MenuData {
  *   const { menu, status, lastUpdated, refresh } = useLiveMenu(branch);
  */
 export function useLiveMenu(branch: string) {
+  const cacheState = (p: Payload | null): LiveStatus =>
+    !p ? "loading" : Date.now() - p.at < CACHE_TRUST_MS ? "cached" : "stale";
+
   const [payload, setPayload] = useState<Payload | null>(() => readCache(branch));
-  const [status, setStatus] = useState<LiveStatus>(() =>
-    readCache(branch) ? "cached" : "loading",
-  );
+  const [status, setStatus] = useState<LiveStatus>(() => cacheState(readCache(branch)));
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchLive = useCallback(
@@ -170,6 +186,7 @@ export function useLiveMenu(branch: string) {
           categories: Array.isArray(d.categories) ? d.categories : [],
           items: d.items,
           at: Date.now(),
+          rev: d.rev,
         };
         setPayload(p);
         writeCache(branch, p);
@@ -178,6 +195,7 @@ export function useLiveMenu(branch: string) {
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
         // نُبقي ما لدينا: نسخة محفوظة أو الملف الثابت
+        // الفشل يُنهي الانتظار: نعرض ما لدينا ونسمح بالحكم
         setStatus((prev) => (prev === "live" ? "live" : readCache(branch) ? "cached" : "static"));
       }
     },
@@ -186,13 +204,8 @@ export function useLiveMenu(branch: string) {
 
   useEffect(() => {
     const cached = readCache(branch);
-    if (cached) {
-      setPayload(cached);
-      setStatus("cached");
-    } else {
-      setPayload(null);
-      setStatus("loading");
-    }
+    setPayload(cached);
+    setStatus(cacheState(cached));
 
     const ctrl = new AbortController();
     fetchLive(ctrl.signal);
@@ -215,7 +228,10 @@ export function useLiveMenu(branch: string) {
     return normalizeStatic(getMenuByBranch(branch));
   }, [payload, branch]);
 
-  /** true متى صار الحكم بعدم وجود قسم آمناً */
+  /**
+   * true متى صار الحكم بعدم وجود قسم أو خلوّه آمناً.
+   * النسخة القديمة (stale) لا تكفي — قد تكون قبل تعديلك مباشرة.
+   */
   const settled = status === "live" || status === "cached" || status === "static";
 
   return { menu, status, settled, lastUpdated, refresh: () => fetchLive() };

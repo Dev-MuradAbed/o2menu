@@ -1509,7 +1509,24 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
             {categoryData.items.filter((i: any) => i.active !== false).length === 0 && (
               <div className="col-span-full text-center py-16">
                 {liveSettled ? (
-                  <p className="text-muted-foreground">لا توجد أصناف متوفرة في هذا القسم حالياً</p>
+                  (() => {
+                    // القسم متوفر في فرع آخر؟ نقولها للزبون بدل رسالة صمّاء
+                    const counts = (categoryData as any).counts || {};
+                    const other = Object.entries(counts).find(
+                      ([b, n]) => b !== defaultBranch && Number(n) > 0,
+                    );
+                    const names: Record<string, string> = { gaza: "فرع غزة", middle: "الفرع الأوسط" };
+                    return (
+                      <>
+                        <p className="text-muted-foreground">لا توجد أصناف متوفرة في هذا القسم حالياً</p>
+                        {other && (
+                          <p className="mt-2 text-sm text-muted-foreground/70">
+                            هذا القسم متوفر في {names[other[0]] || other[0]} — بدّل الفرع لعرضه.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()
                 ) : (
                   <>
                     <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />

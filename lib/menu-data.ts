@@ -16,6 +16,8 @@ export interface MenuCategory {
   title: string;
   byWeight?: boolean;
   items: MenuItem[];
+  /** عدد الأصناف المتوفرة في كل فرع (يأتي من لوحة التحكم) */
+  counts?: Record<string, number>;
 }
 
 export type MenuData = Record<string, MenuCategory>;
