@@ -88,7 +88,8 @@ export default function SelectBranchPage() {
                                         whileTap={{ scale: 0.98 }}
                                         onClick={() => {
                                             setSelectedBranch(branch.id);
-                                            localStorage.setItem("branch", branch.id); // حفظ الفرع
+                                            // يكتب المفتاحين ويُخطر بقية الصفحات
+                                            setSelectedBranch(branch.id);
                                         }}
                                         className="relative h-full rounded-2xl overflow-hidden bg-card border-2 border-border hover:border-primary/50 transition-all duration-300 p-8 cursor-pointer group"
                                     >

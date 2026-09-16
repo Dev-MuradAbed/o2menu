@@ -1216,6 +1216,7 @@ function ConfirmationModal({
 }
 
 function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
+  const { setSelectedBranch } = useBranch();
   const params = useParams();
   const categoryId = params.id as string;
   const router = useRouter();
@@ -1520,9 +1521,17 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
                       <>
                         <p className="text-muted-foreground">لا توجد أصناف متوفرة في هذا القسم حالياً</p>
                         {other && (
-                          <p className="mt-2 text-sm text-muted-foreground/70">
-                            هذا القسم متوفر في {names[other[0]] || other[0]} — بدّل الفرع لعرضه.
-                          </p>
+                          <div className="mt-3">
+                            <p className="text-sm text-muted-foreground/70">
+                              هذا القسم متوفر في {names[other[0]] || other[0]}
+                            </p>
+                            <Button
+                              className="mt-3"
+                              onClick={() => setSelectedBranch(other[0])}
+                            >
+                              الانتقال إلى {names[other[0]] || other[0]}
+                            </Button>
+                          </div>
                         )}
                       </>
                     );
