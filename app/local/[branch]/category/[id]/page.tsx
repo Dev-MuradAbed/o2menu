@@ -26,15 +26,6 @@ export default function LocalCategoryItems() {
         );
     }
 
-    // القسم موجود لكن بلا أصناف متاحة في هذا الفرع
-    if (categoryData && !(categoryData.items || []).some((i: any) => i.active !== false)) {
-      return (
-        <div className="pt-32 pb-20 text-center">
-          <p className="text-xl text-muted-foreground">لا توجد أصناف متاحة في هذا القسم حالياً</p>
-        </div>
-      );
-    }
-
     if (!categoryData) {
         return (
             <div className="pt-32 pb-20 text-center">
@@ -93,6 +84,11 @@ export default function LocalCategoryItems() {
                         transition={{ duration: 0.5, delay: 0.2 }}
                         className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 lg:gap-6"
                     >
+                        {categoryData.items.filter((i: any) => i.active !== false).length === 0 && (
+                          <div className="col-span-full text-center py-16">
+                            <p className="text-muted-foreground">لا توجد أصناف متوفرة في هذا القسم حالياً</p>
+                          </div>
+                        )}
                         {categoryData.items.map((item, index) => (
                             <ProductCard
                                 key={item.name + index}

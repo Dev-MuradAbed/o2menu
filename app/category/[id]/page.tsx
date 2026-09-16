@@ -1427,14 +1427,10 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
     );
   }
 
-  // القسم موجود لكن بلا أصناف متاحة في هذا الفرع
-  if (categoryData && !(categoryData.items || []).some((i: any) => i.active !== false)) {
-    return (
-      <div className="pt-32 pb-20 text-center">
-        <p className="text-xl text-muted-foreground">لا توجد أصناف متاحة في هذا القسم حالياً</p>
-      </div>
-    );
-  }
+  // ملاحظة: لا نعترض الصفحة هنا عند خلوّ القسم.
+  // الاعتراض المبكر كان يمنع الرسم كاملاً — بلا ترويسة ولا تذييل ولا
+  // زر رجوع — ويظهر حتى أثناء وصول البيانات. حالة الخلوّ تُعرض داخل
+  // الشبكة نفسها أسفل الصفحة.
 
   if (!categoryData) {
     // نشخّص السبب بدل رسالة صامتة: هل فشل الاتصال بلوحة التحكم،
@@ -1512,7 +1508,14 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
           >
             {categoryData.items.filter((i: any) => i.active !== false).length === 0 && (
               <div className="col-span-full text-center py-16">
-                <p className="text-muted-foreground">لا توجد أصناف متوفرة في هذا القسم حالياً</p>
+                {liveSettled ? (
+                  <p className="text-muted-foreground">لا توجد أصناف متوفرة في هذا القسم حالياً</p>
+                ) : (
+                  <>
+                    <div className="inline-block w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="mt-4 text-muted-foreground">جاري تحميل الأصناف…</p>
+                  </>
+                )}
               </div>
             )}
             {categoryData.items.map((item, index) => (
