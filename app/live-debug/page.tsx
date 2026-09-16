@@ -144,6 +144,34 @@ export default function LiveDebugPage() {
         </tbody>
       </table>
 
+      <h2 style={{ fontSize: 16, fontWeight: 700, marginTop: 22 }}>الأقسام الواصلة من اللوحة</h2>
+      <table style={{ width: "100%", fontSize: 12.5, borderCollapse: "collapse" }}>
+        <thead><tr style={{ color: "#666" }}>
+          <th style={{ textAlign: "start", padding: "5px 0" }}>المعرّف</th>
+          <th style={{ textAlign: "start" }}>الاسم</th>
+          <th style={{ textAlign: "start" }}>أصناف متاحة</th>
+          <th style={{ textAlign: "start" }}>الرابط</th>
+        </tr></thead>
+        <tbody>
+          {(raw?.categories || []).map((c: any) => {
+            const n = (raw?.items || []).filter((i: any) => i.cat === c.id && i.active).length;
+            return (
+              <tr key={c.id}>
+                <td style={{ padding: "5px 0", direction: "ltr", textAlign: "right" }}><code>{c.id}</code></td>
+                <td>{c.label || c.name}</td>
+                <td style={{ color: n ? "#16a34a" : "#ca8a04", fontWeight: 700 }}>{n}</td>
+                <td><a href={`/category/${c.id}`} style={{ color: "#2563eb" }}>فتح</a></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {!(raw?.categories || []).length && (
+        <div style={{ fontSize: 12.5, color: "#dc2626" }}>
+          لم تصل أي أقسام من البوت — راجع الفحوص أعلاه.
+        </div>
+      )}
+
       {(onlyBot.length > 0 || onlySite.length > 0) && (
         <>
           <h2 style={{ fontSize: 16, fontWeight: 700, marginTop: 22 }}>أسماء لا تتطابق</h2>

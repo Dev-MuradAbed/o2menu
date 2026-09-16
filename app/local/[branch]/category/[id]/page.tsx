@@ -12,9 +12,8 @@ export default function LocalCategoryItems() {
     const params = useParams();
     const branch = params.branch as string;
     const categoryId = params.id as string;
-    const { menu: branchMenu, status: liveStatus } = useLiveMenu(branch);
+    const { menu: branchMenu, settled: liveSettled } = useLiveMenu(branch);
     const categoryData = branchMenu[categoryId as keyof typeof branchMenu];
-    const liveSettled = liveStatus === "live" || liveStatus === "error" || liveStatus === "off";
 
     // انتظر بيانات البوت قبل الحكم — الأقسام المضافة من اللوحة
     // ليست في المنيو الثابت وتصل بعد أول رسم.
@@ -25,6 +24,15 @@ export default function LocalCategoryItems() {
                 <p className="mt-4 text-muted-foreground">جاري تحميل القسم…</p>
             </div>
         );
+    }
+
+    // القسم موجود لكن بلا أصناف متاحة في هذا الفرع
+    if (categoryData && !(categoryData.items || []).some((i: any) => i.active !== false)) {
+      return (
+        <div className="pt-32 pb-20 text-center">
+          <p className="text-xl text-muted-foreground">لا توجد أصناف متاحة في هذا القسم حالياً</p>
+        </div>
+      );
     }
 
     if (!categoryData) {

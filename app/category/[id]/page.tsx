@@ -1236,10 +1236,8 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
 
   // Get menu data for the current branch - each branch has independent menu
   // التوفّر يأتي حيّاً من لوحة التحكم — الإغلاق يظهر خلال ثوانٍ
-  const { menu: branchMenu, status: liveStatus } = useLiveMenu(defaultBranch);
-  // الأقسام المضافة من لوحة التحكم لا توجد في المنيو الثابت،
-  // فلا نحكم بعدمها قبل وصول بيانات البوت.
-  const liveSettled = liveStatus === "live" || liveStatus === "error" || liveStatus === "off";
+  const { menu: branchMenu, status: liveStatus, settled: liveSettled } =
+    useLiveMenu(defaultBranch);
   const categoryData = branchMenu[categoryId];
   const isByWeight = categoryData?.byWeight || false;
 
@@ -1429,12 +1427,28 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
     );
   }
 
+  // القسم موجود لكن بلا أصناف متاحة في هذا الفرع
+  if (categoryData && !(categoryData.items || []).some((i: any) => i.active !== false)) {
+    return (
+      <div className="pt-32 pb-20 text-center">
+        <p className="text-xl text-muted-foreground">لا توجد أصناف متاحة في هذا القسم حالياً</p>
+      </div>
+    );
+  }
+
   if (!categoryData) {
+    // نشخّص السبب بدل رسالة صامتة: هل فشل الاتصال بلوحة التحكم،
+    // أم أنه معطّل، أم أن القسم فعلاً غير موجود؟
+    const reason =
+      liveStatus === "static"
+        ? "تعذّر الاتصال بلوحة التحكم — قد تكون الخدمة نائمة. أعد المحاولة بعد دقيقة."
+        : `لا يوجد قسم بالمعرّف "${categoryId}" في منيو هذا الفرع.`;
     return (
       <main className="min-h-screen bg-background">
         <Navbar />
-        <div className="pt-32 pb-20 text-center">
+        <div className="pt-32 pb-20 text-center px-4">
           <p className="text-xl text-muted-foreground">القسم غير موجود</p>
+          <p className="mt-3 text-sm text-muted-foreground/70 max-w-md mx-auto">{reason}</p>
           <Link href="/categories">
             <Button className="fixed top-[72px] right-4 md:top-[90px] md:right-8 z-[1000]">
               <ChevronLeft className="w-4 h-4" />
@@ -1496,6 +1510,11 @@ function CategoryPageContent({ defaultBranch }: { defaultBranch: string }) {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 lg:gap-6"
           >
+            {categoryData.items.filter((i: any) => i.active !== false).length === 0 && (
+              <div className="col-span-full text-center py-16">
+                <p className="text-muted-foreground">لا توجد أصناف متوفرة في هذا القسم حالياً</p>
+              </div>
+            )}
             {categoryData.items.map((item, index) => (
               <ProductCard
                 key={item.name}

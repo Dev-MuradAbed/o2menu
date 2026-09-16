@@ -1,53 +1,50 @@
 "use client";
 
 /**
- * التوفّر الحيّ — يربط المنيو الإلكتروني بلوحة تحكم البوت.
+ * مصدر المنيو الموحّد.
  *
- * المنيو الثابت في menu-data.ts يبقى مصدر الأسماء والأوصاف والصور.
- * هذه الطبقة تجلب حالة التوفّر (active) والأسعار من البوت وتدمجها،
- * فما يُغلقه الكاشير يختفي من الموقع خلال ثوانٍ.
+ * ══ المبدأ ══
+ * لوحة التحكم هي المصدر الوحيد للحقيقة. الموقع يعرض ما فيها:
+ * الأقسام والأصناف والأسعار والمكونات والصور وحالة التوفّر.
+ * أي إضافة أو تعديل أو حذف يظهر هنا مباشرة بلا نشر.
  *
- * إن تعذّر الوصول للبوت لأي سبب يعمل الموقع بالمنيو الثابت كما كان —
- * لا شاشة بيضاء ولا منيو فارغ.
+ * ══ لماذا تغيّر هذا ══
+ * كان menu-data.ts مصدراً موازياً يُدمج مع بيانات البوت. الازدواجية
+ * سبّبت: أقساماً جديدة لا تظهر، وأصنافاً محذوفة تبقى، و«القسم غير
+ * موجود» عند التحديث لأن الثابت يُرسم أولاً.
+ *
+ * ══ الاحتياطي ══
+ * 1) آخر نسخة ناجحة محفوظة في المتصفح — تظهر فوراً عند التحديث
+ * 2) menu-data.ts — إن لم يسبق للزائر أن حمّل شيئاً والبوت غير متاح
+ *
+ * فلا تظهر صفحة فارغة في أي حال.
  */
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { getMenuByBranch, type MenuData, type MenuItem } from "./menu-data";
 import { imgSrc } from "./img";
 
-/**
- * مصدر البيانات — طريقتان:
- *
- *  أ) وسيط على نفس النطاق (موصى به): اضبط BOT_ORIGIN فقط،
- *     فيمرّ الطلب عبر /bot-api/… بلا CORS ودون كشف رابط Render.
- *
- *  ب) اتصال مباشر: اضبط NEXT_PUBLIC_BOT_URL برابط البوت.
- *
- * إن ضُبط الاثنان يُفضَّل الوسيط.
- */
 const DIRECT_URL = (process.env.NEXT_PUBLIC_BOT_URL || "").replace(/\/+$/, "");
-const USE_PROXY  = process.env.NEXT_PUBLIC_USE_BOT_PROXY === "1";
-const BOT_URL    = USE_PROXY ? "/bot-api" : DIRECT_URL;
+const USE_PROXY = process.env.NEXT_PUBLIC_USE_BOT_PROXY === "1";
+const BOT_URL = USE_PROXY ? "/bot-api" : DIRECT_URL;
 
-/** إعدادات الاتصال كما وصلت البناء — للتشخيص */
+/** بلا إعداد نطاق نستعمل مساراً نسبياً — قاعدة rewrites توجّهه للبوت */
+const ENDPOINT = USE_PROXY
+  ? "/bot-api/public/menu"
+  : DIRECT_URL
+  ? `${DIRECT_URL}/api/public/menu`
+  : "/api/public/menu";
+
+const REFRESH_MS = 45_000;
+const CACHE_KEY = "o2-menu-cache-v2";
+
 export const LIVE_CONFIG = {
   useProxy: USE_PROXY,
   directUrl: DIRECT_URL,
   resolvedBase: BOT_URL,
-  endpoint: USE_PROXY ? "/bot-api/public/menu" : `${DIRECT_URL}/api/public/menu`,
-  configured: Boolean(BOT_URL),
+  endpoint: ENDPOINT,
+  configured: true, // يعمل دائماً: نطاق صريح أو وسيط أو مسار نسبي
 };
-
-if (typeof window !== "undefined" && !BOT_URL) {
-  console.warn(
-    "[O2] التوفّر الحيّ معطّل: لم يصل أي رابط للبوت إلى البناء.\n" +
-    "اضبط BOT_ORIGIN + NEXT_PUBLIC_USE_BOT_PROXY=1 (أو NEXT_PUBLIC_BOT_URL)\n" +
-    "ثم أعد البناء — متغيرات NEXT_PUBLIC_ تُدمج وقت البناء لا وقت التشغيل."
-  );
-}
-
-/** كل كم ثانية نعيد الجلب أثناء فتح الصفحة */
-const REFRESH_MS = 45_000;
 
 type LiveItem = {
   id: number;
@@ -71,157 +68,136 @@ type LiveCategory = {
   order?: number;
 };
 
-export type LiveStatus = "off" | "loading" | "live" | "error";
+type Payload = { categories: LiveCategory[]; items: LiveItem[]; at: number };
 
-/* ── تطبيع عربي للمطابقة بالاسم ── */
-function norm(s: string): string {
-  return String(s || "")
-    .replace(/[\u064B-\u0652\u0670]/g, "")
-    .replace(/[إأآٱ]/g, "ا")
-    .replace(/ى/g, "ي")
-    .replace(/[ةه]/g, "ه")
-    .replace(/ؤ/g, "و")
-    .replace(/ئ/g, "ي")
-    .replace(/\u0640/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+/** live = من البوت · cached = آخر نسخة محفوظة · static = الملف · loading */
+export type LiveStatus = "loading" | "live" | "cached" | "static";
+
+/* ── تخزين مؤقت في المتصفح ── */
+
+function readCache(branch: string): Payload | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(`${CACHE_KEY}:${branch}`);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Payload;
+    if (!p || !Array.isArray(p.items) || !p.items.length) return null;
+    return p;
+  } catch {
+    return null;
+  }
 }
 
-/**
- * يدمج التوفّر الحيّ في المنيو الثابت.
- * المطابقة بـ (القسم + الاسم المطبَّع). الأسماء المكررة داخل القسم
- * تُطابَق بالترتيب حتى لا يأخذ الأول حالة الثاني.
- */
-export function mergeAvailability(
-  staticMenu: MenuData,
-  live: LiveItem[],
-  liveCats: LiveCategory[] = [],
-): MenuData {
-  if (!live.length) return staticMenu;
-
-  const buckets = new Map<string, LiveItem[]>();
-  for (const li of live) {
-    const key = `${li.cat}|${norm(li.name)}`;
-    const arr = buckets.get(key);
-    if (arr) arr.push(li);
-    else buckets.set(key, [li]);
+function writeCache(branch: string, p: Payload) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(`${CACHE_KEY}:${branch}`, JSON.stringify(p));
+  } catch {
+    /* المساحة ممتلئة أو التخزين معطّل — غير حرج */
   }
-  const used = new Map<string, number>();
+}
+
+/** يحوّل رد البوت إلى شكل المنيو الذي تعرضه الصفحات */
+export function buildMenu(payload: Payload): MenuData {
+  const cats = [...payload.categories].sort(
+    (a, b) => (a.order || 999) - (b.order || 999),
+  );
 
   const out: MenuData = {};
-  const matched = new Set<LiveItem>();   // ما طوبق مع المنيو الثابت
-
-  for (const [catId, cat] of Object.entries(staticMenu)) {
-    out[catId] = {
-      ...cat,
-      items: cat.items.map((item: MenuItem) => {
-        const key = `${catId}|${norm(item.name)}`;
-        const arr = buckets.get(key);
-        if (!arr || !arr.length) return item;          // غير معروف للبوت — يبقى كما هو
-        const idx = used.get(key) || 0;
-        const match = arr[Math.min(idx, arr.length - 1)];
-        used.set(key, idx + 1);
-        matched.add(match);
-        return {
-          ...item,
-          active: match.active,
-          // السعر من اللوحة إن كان مفرداً — الأحجام والوزن تبقى من الملف الثابت
-          ...(match.price !== undefined && !item.variants && !item.pricePerKg
-            ? { price: match.price }
-            : {}),
-        };
-      }),
-    };
+  for (const c of cats) {
+    out[c.id] = {
+      title: c.label || c.name || c.id,
+      byWeight: Boolean(c.byWeight),
+      items: [],
+    } as MenuData[string];
   }
 
-  // ── ما أُضيف من اللوحة ولا وجود له في menu-data.ts ──
-  // بدون هذا، أي قسم أو صنف تضيفه من لوحة التحكم لا يظهر للزبون أبداً.
-  const catMeta = new Map(liveCats.map((c) => [c.id, c]));
-
-  for (const li of live) {
-    if (matched.has(li)) continue;
-
-    if (!out[li.cat]) {
-      const meta = catMeta.get(li.cat);
-      out[li.cat] = {
-        title: meta ? (meta.label || meta.name) : li.cat,
-        byWeight: meta ? Boolean(meta.byWeight) : false,
-        items: [],
-      } as MenuData[string];
+  for (const i of payload.items) {
+    if (!out[i.cat]) {
+      // صنف في قسم غير مُعلَن — ننشئه بدل إسقاط الصنف
+      out[i.cat] = { title: i.cat, byWeight: false, items: [] } as MenuData[string];
     }
-    // لا تكرّر صنفاً موجوداً بالاسم في القسم
-    const exists = out[li.cat].items.some((x) => norm(x.name) === norm(li.name));
-    if (exists) continue;
-
-    out[li.cat].items.push({
-      name: li.name,
-      desc: li.desc || "",
-      image: li.image || "",
-      active: li.active,
-      ...(li.pricePerKg ? { pricePerKg: li.pricePerKg } : {}),
-      ...(li.variants && li.variants.length ? { variants: li.variants } : {}),
-      ...(!li.pricePerKg && !(li.variants && li.variants.length) && li.price !== undefined
-        ? { price: li.price } : {}),
+    out[i.cat].items.push({
+      name: i.name,
+      desc: i.desc || "",
+      image: imgSrc(i.image),
+      active: i.active,
+      ...(i.pricePerKg ? { pricePerKg: i.pricePerKg } : {}),
+      ...(i.variants && i.variants.length ? { variants: i.variants } : {}),
+      ...(!i.pricePerKg &&
+      !(i.variants && i.variants.length) &&
+      i.price !== undefined
+        ? { price: i.price }
+        : {}),
     } as MenuItem);
   }
+  return out;
+}
 
-  // رتّب الأقسام حسب ترتيب اللوحة
-  if (liveCats.length) {
-    const ordered: MenuData = {};
-    const rank = (id: string) => {
-      const m = catMeta.get(id);
-      return m && m.order ? m.order : 999;
-    };
-    Object.keys(out).sort((a, b) => rank(a) - rank(b)).forEach((k) => { ordered[k] = out[k]; });
-    return ordered;
+/** يصلح مسارات صور المنيو الثابت لتمرّ بنفس منطق imgSrc */
+function normalizeStatic(menu: MenuData): MenuData {
+  const out: MenuData = {};
+  for (const [k, c] of Object.entries(menu)) {
+    out[k] = { ...c, items: c.items.map((i) => ({ ...i, image: imgSrc(i.image) })) };
   }
   return out;
 }
 
 /**
- * يعيد منيو الفرع مدموجاً بالتوفّر الحيّ.
+ * منيو الفرع من لوحة التحكم.
  *
  *   const { menu, status, lastUpdated, refresh } = useLiveMenu(branch);
- *   const categoryData = menu[categoryId];
  */
 export function useLiveMenu(branch: string) {
-  const staticMenu = useMemo(() => getMenuByBranch(branch), [branch]);
-  const [live, setLive] = useState<LiveItem[]>([]);
-  const [liveCats, setLiveCats] = useState<LiveCategory[]>([]);
-  const [status, setStatus] = useState<LiveStatus>(BOT_URL ? "loading" : "off");
+  const [payload, setPayload] = useState<Payload | null>(() => readCache(branch));
+  const [status, setStatus] = useState<LiveStatus>(() =>
+    readCache(branch) ? "cached" : "loading",
+  );
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchLive = useCallback(async (signal?: AbortSignal) => {
-    if (!BOT_URL) { setStatus("off"); return; }
-    try {
-      // الوسيط يعيد كتابة /bot-api/* إلى /api/* فلا نكرّر البادئة
-      const path = USE_PROXY ? "/public/menu" : "/api/public/menu";
-      const r = await fetch(
-        `${BOT_URL}${path}?branch=${encodeURIComponent(branch)}`,
-        { signal, cache: "no-store" },
-      );
-      if (!r.ok) throw new Error(String(r.status));
-      const d = await r.json();
-      if (!d.ok || !Array.isArray(d.items)) throw new Error("رد غير متوقع");
-      setLive(d.items);
-      setLiveCats(Array.isArray(d.categories) ? d.categories : []);
-      setLastUpdated(new Date());
-      setStatus("live");
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      // نُبقي آخر نسخة ناجحة إن وُجدت؛ وإلا يعمل الموقع بالثابت
-      setStatus((prev) => (prev === "live" ? "live" : "error"));
-    }
-  }, [branch]);
+  const fetchLive = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const r = await fetch(
+          `${ENDPOINT}?branch=${encodeURIComponent(branch)}`,
+          { signal, cache: "no-store" },
+        );
+        if (!r.ok) throw new Error(String(r.status));
+        const d = await r.json();
+        if (!d.ok || !Array.isArray(d.items)) throw new Error("رد غير متوقع");
+
+        const p: Payload = {
+          categories: Array.isArray(d.categories) ? d.categories : [],
+          items: d.items,
+          at: Date.now(),
+        };
+        setPayload(p);
+        writeCache(branch, p);
+        setLastUpdated(new Date());
+        setStatus("live");
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        // نُبقي ما لدينا: نسخة محفوظة أو الملف الثابت
+        setStatus((prev) => (prev === "live" ? "live" : readCache(branch) ? "cached" : "static"));
+      }
+    },
+    [branch],
+  );
 
   useEffect(() => {
-    if (!BOT_URL) return;
+    const cached = readCache(branch);
+    if (cached) {
+      setPayload(cached);
+      setStatus("cached");
+    } else {
+      setPayload(null);
+      setStatus("loading");
+    }
+
     const ctrl = new AbortController();
     fetchLive(ctrl.signal);
 
     const timer = setInterval(() => fetchLive(), REFRESH_MS);
-    // إعادة الجلب عند العودة للتبويب — الزبون يرى أحدث حالة فوراً
     const onFocus = () => fetchLive();
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onFocus);
@@ -232,22 +208,20 @@ export function useLiveMenu(branch: string) {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onFocus);
     };
-  }, [fetchLive]);
+  }, [branch, fetchLive]);
 
   const menu = useMemo(() => {
-    const merged = live.length ? mergeAvailability(staticMenu, live, liveCats) : staticMenu;
-    // تصحيح مصدر الصور لكل صنف — يعمل سواء وصل التوفّر الحيّ أم لا
-    const out: MenuData = {};
-    for (const [catId, cat] of Object.entries(merged)) {
-      out[catId] = { ...cat, items: cat.items.map((i) => ({ ...i, image: imgSrc(i.image) })) };
-    }
-    return out;
-  }, [staticMenu, live, liveCats]);
+    if (payload) return buildMenu(payload);
+    return normalizeStatic(getMenuByBranch(branch));
+  }, [payload, branch]);
 
-  return { menu, status, lastUpdated, refresh: () => fetchLive() };
+  /** true متى صار الحكم بعدم وجود قسم آمناً */
+  const settled = status === "live" || status === "cached" || status === "static";
+
+  return { menu, status, settled, lastUpdated, refresh: () => fetchLive() };
 }
 
-/** عدد الأصناف المتوفرة في قسم — مفيد لبطاقات الأقسام */
+/** عدد الأصناف المتوفرة في قسم */
 export function countActive(menu: MenuData, catId: string): number {
   const c = menu[catId];
   if (!c) return 0;
